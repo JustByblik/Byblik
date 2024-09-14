@@ -1,0 +1,244 @@
+local module = {}
+
+local Assets = game.ReplicatedStorage.Assets -- Founding Folders
+local Storage = Assets.Storage
+local Accessory = Assets.Accessory
+local Remotes = Assets.Remotes
+local Animations = Assets.Animations
+
+local TransfurTime = 0.75 -- Infect Time
+
+function module:Cover(part,Color) -- Covers the body with Part
+	local Size
+	local Goo = Storage.GooMesh:Clone()
+	Goo.Parent = part.Parent
+	Goo.Color = Color
+
+	if part.Name == "Head" then -- Super Needs
+		Goo.Mesh.MeshType = Enum.MeshType.Head
+		Goo.Mesh.Scale = Vector3.new(1.3,0,1.3)
+		Size = Vector3.new(1.3,0.65,1.3)
+	else
+		Goo.Mesh.MeshType = Enum.MeshType.FileMesh
+		Goo.Mesh.MeshId = "rbxasset://fonts/rightarm.mesh"
+		Goo.Mesh.Scale = Vector3.new(part.Size.X + 0.05 ,0,1.05)
+		Size = Vector3.new(part.Size.X + 0.05,1.05,1.05)
+	end
+	task.wait(0.01)
+	local Weld = Instance.new("Weld",part) -- Welds
+	Weld.Part0 = part 
+	Weld.Part1 = Goo
+	Goo.Noise:Play()
+	task.wait(0.04)
+	local tInfo = TweenInfo.new(TransfurTime,Enum.EasingStyle.Cubic,Enum.EasingDirection.InOut)
+	game.TweenService:Create(Goo.Mesh, tInfo, {Scale = Size,Offset = Vector3.new(0,0,0)}):Play() -- Resizing Part
+	task.wait(TransfurTime)
+	-- Change player body part color to gooColor
+	part.Color = Color
+end
+
+function module:CleanGoo(char) -- Clean Body
+	for i,v in pairs(char:GetChildren()) do
+		if v.Name == "GooMesh" then
+			game.TweenService:Create(v, TweenInfo.new(0.5,Enum.EasingStyle.Cubic,Enum.EasingDirection.InOut), {Transparency = 1}):Play()
+			game.Debris:AddItem(v,0.5)
+		end
+	end
+end
+
+function module:CleanAccs(char,Color,Folder1) -- Clean Accessoryes
+	if char:FindFirstChildOfClass("Accessory") then
+		for i,v in pairs(char:GetChildren()) do
+			if v:IsA("Accessory") then
+				if v.AccessoryType == Enum.AccessoryType.Unknown then
+				else
+					if v.AccessoryType == Enum.AccessoryType.Hair then
+						local Handle = v:FindFirstChild("Handle")
+						local Mesh = Handle:FindFirstChildOfClass("SpecialMesh")
+						Mesh.TextureId = ""
+						Handle.Color = Color
+					else
+						v:Destroy()
+					end
+				end
+			end
+		end
+		if char:FindFirstChildOfClass("Accessory") and char:FindFirstChildOfClass("Accessory").AccessoryType == Enum.AccessoryType.Hair then -- Super Neends
+		else
+			for i,f in pairs(Folder1:GetChildren()) do
+				if f:IsA("Accessory") then
+					if f.AccessoryType == Enum.AccessoryType.Hair then
+						f:Clone().Parent = char --Clone Hair on Head
+					end
+				end
+			end
+		end
+	else
+		for i,f in pairs(Folder1:GetChildren()) do
+			if f:IsA("Accessory") then
+				if f.AccessoryType == Enum.AccessoryType.Hair then
+					f:Clone().Parent = char --Clone Hair on Head
+				end
+			end
+		end
+	end
+end
+
+function module:Add(char,Folder) -- Add Accessories to Character
+	local playerShirt = char:FindFirstChildOfClass("Shirt")
+	local playerPants = char:FindFirstChildOfClass("Pants")
+	local playerFace = char:FindFirstChild("Head"):FindFirstChildOfClass("Decal")
+	for i,v in pairs(Folder:GetChildren()) do
+		if v:IsA("Shirt") then
+			if playerShirt then
+				playerShirt:Destroy()
+			end
+			v:Clone().Parent = char
+		elseif v:IsA("Pants") then
+			if playerPants then
+				playerPants:Destroy()
+			end
+			v:Clone().Parent = char
+		elseif v:IsA("Decal") then
+			if playerFace then
+				playerFace:Destroy()
+			end
+			v:Clone().Parent = char:FindFirstChild("Head")
+		elseif v:IsA("Accessory") then
+			if v.AccessoryType == Enum.AccessoryType.Hair then
+			else
+				v:Clone().Parent = char
+				for i,v in pairs(v:GetDescendants()) do
+					if v:IsA("Part") or v:IsA("MeshPart") or v:IsA("UnionOperation") then
+						v.Transparency = 1 -- Make Parts Invisible
+						game.TweenService:Create(v,TweenInfo.new(1,Enum.EasingStyle.Cubic,Enum.EasingDirection.Out),{Transparency = 0}):Play()
+					end
+				end
+			end
+		end
+	end
+end
+
+function module:CleanTools(char) --Clean Tools
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if game.Players:FindFirstChild(char.Name) then
+		local player = game.Players:FindFirstChild(char.Name)
+		local backpack = player.Backpack
+
+		humanoid:UnequipTools() -- Unequip Tools
+		task.wait(0.1)
+		backpack:ClearAllChildren();
+	else
+		for i,v in pairs(char:GetChildren()) do
+			if v:IsA("Tool") then -- Destroy Tools
+				v:Destroy()
+			end
+		end
+	end
+end
+
+function module:AddTools(char,Type) -- Add Tools
+	if game.Players:FindFirstChild(char.Name) then
+		local backpack = game.Players:FindFirstChild(char.Name).Backpack
+		local Items = Assets.Tools.Infected.Basic
+		for i,v in pairs(Items:GetChildren()) do
+			if v:IsA("Tool") then
+				v:Clone().Parent = backpack -- Add in Backpack
+			end
+		end
+	end
+end
+
+function module:Transfur(char,Type,InfectedBySomeone) -- Transfur Character, using all upwards functions
+	local plr = game.Players:GetPlayerFromCharacter(char)
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local root:Part = char:FindFirstChild("HumanoidRootPart")
+	local TypeFolder = Accessory.Basic:FindFirstChild(tostring(Type))
+	local Color = TypeFolder:FindFirstChildOfClass("BodyColors")
+	local InfectAnim = hum:LoadAnimation(Assets.Animations.Infects.Puddle) -- Loading Anim
+	InfectAnim:Play(0.2)
+	local Stop = false
+
+	local infectingValue = Instance.new("BoolValue") -- Adds Value for not double infect
+	infectingValue.Name = "Infecting"
+	infectingValue.Parent = char
+	hum.AutoRotate = false
+	
+	hum.WalkSpeed = 0 -- Make Player Stand
+	hum.JumpPower = 0
+
+
+	if plr then
+		local infect = coroutine.wrap(function()
+			Remotes.Infect:FireClient(plr)
+			module:CleanTools(char)
+			task.wait(0.05)
+			task.wait(0.05)
+			module:Cover(char:FindFirstChild("Right Arm"),Color.RightArmColor3) -- Cover Arm
+			task.wait(0.1)
+			module:Cover(char:FindFirstChild("Left Arm"),Color.LeftArmColor3)-- Cover Arm Again
+			task.wait(0.1)
+			module:Cover(char:FindFirstChild("Torso"),Color.TorsoColor3) -- Cover Torso
+			task.wait(0.1)
+			module:Cover(char:FindFirstChild("Right Leg"),Color.RightLegColor3) -- Cover Leg
+			task.wait(0.1)
+			module:Cover(char:FindFirstChild("Left Leg"),Color.LeftLegColor3) -- Cover Leg
+			task.wait(0.1)
+			module:Cover(char:FindFirstChild("Head"),Color.HeadColor3) -- Cover Head
+			task.wait(0.3)
+			module:CleanGoo(char)
+			module:CleanAccs(char,Color.HeadColor3,TypeFolder) -- Cleaning accs
+			task.wait(0.05)
+			if hum.Health <= 0 then return end
+			module:Add(char,TypeFolder) -- Add Accs
+			module:AddTools(char,Type) -- Adds Tools
+			task.wait(0.5)
+			if hum.Health <= 0 then return end
+			infectingValue:Destroy() -- Make player move
+			hum.WalkSpeed = 16
+			root.Anchored = false
+			hum.JumpPower = 50
+			hum.AutoRotate = true
+			plr.Team = game.Teams.Infected
+			hum.MaxHealth = 100
+			hum.Health = hum.MaxHealth
+		end)
+		infect()
+	else
+		if char:GetAttribute("Human") then
+			local infect = coroutine.wrap(function()
+				char:SetAttribute("Human",false)
+				task.wait(0.05)
+				task.wait(0.05)
+				module:Cover(char:FindFirstChild("Right Arm"),Color.RightArmColor3)-- Cover Arm
+				task.wait(0.1)
+				module:Cover(char:FindFirstChild("Left Arm"),Color.LeftArmColor3)-- Cover Arm
+				task.wait(0.1)
+				module:Cover(char:FindFirstChild("Torso"),Color.TorsoColor3)-- Cover Torso
+				task.wait(0.1)
+				module:Cover(char:FindFirstChild("Right Leg"),Color.RightLegColor3) -- Cover Leg
+				task.wait(0.1)
+				module:Cover(char:FindFirstChild("Left Leg"),Color.LeftLegColor3) -- Cover Leg
+				task.wait(0.1)
+				module:Cover(char:FindFirstChild("Head"),Color.HeadColor3) -- Cover Head
+				task.wait(0.3)
+				if hum.Health <= 0 then return end
+				module:CleanGoo(char)
+				module:CleanAccs(char,Color,TypeFolder)
+				module:Add(char,TypeFolder)-- Add Accs
+				task.wait(0.5)
+				if hum.Health <= 0 then return end
+				infectingValue:Destroy() -- Make NPC move
+				hum.WalkSpeed = 16
+				root.Anchored = false
+				hum.JumpPower = 50
+				hum.AutoRotate = true
+				hum.MaxHealth = 100
+				hum.Health = hum.MaxHealth
+			end)
+			infect()
+		end
+	end
+end
+
+return module
